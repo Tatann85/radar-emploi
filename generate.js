@@ -77,6 +77,13 @@ section.region h2 .count{color:var(--muted);font-weight:400;text-transform:none;
 .details.open{display:block}
 .details a{color:var(--accent);text-decoration:none}
 .details a:hover{text-decoration:underline}
+.archive-btn{background:none;border:1px solid var(--border);color:var(--muted);
+  cursor:pointer;font-size:1rem;padding:4px 8px;line-height:1;border-radius:8px;
+  text-decoration:none;transition:border-color .15s,color .15s}
+.archive-btn:hover{border-color:var(--warn);color:var(--warn)}
+.job-descr{white-space:pre-wrap;margin:0 0 10px;padding:12px 14px;background:var(--panel2);
+  border:1px solid var(--border);border-radius:10px;font-size:.88rem;max-height:340px;
+  overflow-y:auto}
 `;
 module.exports.CSS = CSS;
 const CSS2 = `
@@ -129,6 +136,14 @@ function renderCard(o, archived) {
   var motif = archived && o.archive_motif
     ? '<p class="archive-motif">Archivée : ' + esc(o.archive_motif) + '</p>' : '';
   var notes = o.notes ? '<p>' + esc(o.notes) + '</p>' : '';
+  var descr = o.description ? '<div class="job-descr">' + esc(o.description) + '</div>' : '';
+  var archiveUrl = 'https://github.com/Tatann85/radar-emploi/issues/new?' +
+    'title=' + encodeURIComponent('archiver: ' + o.id) +
+    '&labels=' + encodeURIComponent('archive') +
+    '&body=' + encodeURIComponent('Motif (optionnel), à remplacer avant de valider :\n\n');
+  var archiveBtn = archived ? '' :
+    '<a class="archive-btn" href="' + archiveUrl + '" target="_blank" rel="noopener" ' +
+    'aria-label="Archiver cette offre" title="Archiver">🗄</a>';
   return '' +
     '<div class="card' + (archived ? ' archive-card' : '') + '">' +
       '<div class="card-top">' +
@@ -139,11 +154,12 @@ function renderCard(o, archived) {
           '<div class="badges">' + badges + '</div>' +
         '</div>' +
         '<div class="card-actions">' +
+          archiveBtn +
           '<button class="chevron" data-target="' + detId + '" aria-label="Détail">▾</button>' +
         '</div>' +
       '</div>' +
       '<div class="details" id="' + detId + '">' +
-        notes + motif +
+        notes + descr + motif +
         '<p><a href="' + esc(o.url) + '" target="_blank" rel="noopener">Voir l\'offre originale →</a></p>' +
       '</div>' +
     '</div>';

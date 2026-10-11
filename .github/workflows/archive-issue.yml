@@ -1,0 +1,60 @@
+name: Archivage depuis une issue
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  archive:
+    if: startsWith(github.event.issue.title, 'archiver:')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Appliquer l'archivage
+        id: apply
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: node scripts/archive-issue.js
+
+      - name: Committer et pousser
+        if: steps.apply.outputs.changed == 'true'
+        run: |
+          git config user.name "radar-emploi-bot"
+          git config user.email "actions@github.com"
+          git add data/offres.json
+          git commit -m "Archive: ${{ steps.apply.outputs.id }}"
+          git push
+
+      - name: Commenter et fermer l'issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changed = '${{ steps.apply.outputs.changed }}' === 'true';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: changed
+                ? '✅ Offre archivée, le site se mettra à jour dans la minute.'
+                : '⚠️ Offre introuvable ou déjà archivée, aucune modification effectuée.'
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed'
+            });
