@@ -88,6 +88,15 @@ header.hero p{color:var(--muted);margin:0;font-size:1.02rem}
   cursor:pointer;font-size:1.1rem;line-height:1;border-radius:10px;flex-shrink:0;
   text-decoration:none;transition:border-color .15s,color .15s}
 .archive-btn:hover{border-color:var(--warn);color:var(--warn)}
+.postuler-btn{display:inline-flex;align-items:center;justify-content:center;
+  width:40px;height:40px;background:none;border:1px solid var(--accent-dark);color:var(--accent);
+  cursor:pointer;font-size:1.1rem;line-height:1;border-radius:10px;flex-shrink:0;
+  text-decoration:none;transition:background .15s,color .15s}
+.postuler-btn:hover{background:var(--accent);color:#07211a}
+.candidature-badge{font-size:.75rem;padding:6px 10px;border-radius:999px;
+  background:var(--panel2);color:var(--muted);border:1px solid var(--border);
+  white-space:nowrap;flex-shrink:0}
+.candidature-badge.envoyee{color:var(--accent);border-color:var(--accent-dark)}
 .job-descr{white-space:pre-wrap;margin:0 0 10px;padding:12px 14px;background:var(--panel2);
   border:1px solid var(--border);border-radius:10px;font-size:.88rem;max-height:340px;
   overflow-y:auto}
@@ -109,7 +118,7 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;margin-top:50px}
   header.hero h1{font-size:1.5rem}
   .card-top{flex-wrap:wrap}
   .card-actions{margin-left:auto;gap:4px}
-  .chevron,.archive-btn{width:44px;height:44px;font-size:1.35rem}
+  .chevron,.archive-btn,.postuler-btn{width:44px;height:44px;font-size:1.35rem}
   .chk{width:24px;height:24px}
 }
 `;
@@ -153,6 +162,26 @@ function renderCard(o, archived) {
   var archiveBtn = archived ? '' :
     '<a class="archive-btn" href="' + archiveUrl + '" target="_blank" rel="noopener" ' +
     'aria-label="Archiver cette offre" title="Archiver">🗄</a>';
+
+  var postulerUrl = 'https://github.com/Tatann85/radar-emploi/issues/new?' +
+    'title=' + encodeURIComponent('postuler: ' + o.id) +
+    '&labels=' + encodeURIComponent('postuler') +
+    '&body=' + encodeURIComponent('Candidature demandee depuis le site. Ne rien modifier ci-dessous.\n\n');
+  var candStatus = o.candidature_status || null;
+  var candAction = '';
+  if (archived) {
+    candAction = '';
+  } else if (candStatus === 'envoyee') {
+    candAction = '<span class="candidature-badge envoyee">✓ Candidature envoyée</span>';
+  } else if (candStatus === 'preparee') {
+    candAction = '<span class="candidature-badge">En attente de ta validation</span>';
+  } else if (candStatus === 'demandee') {
+    candAction = '<span class="candidature-badge">Préparation en cours…</span>';
+  } else {
+    candAction = '<a class="postuler-btn" href="' + postulerUrl + '" target="_blank" rel="noopener" ' +
+      'aria-label="Postuler à cette offre" title="Postuler">✉</a>';
+  }
+
   return '' +
     '<div class="card' + (archived ? ' archive-card' : '') + '">' +
       '<div class="card-top">' +
@@ -163,6 +192,7 @@ function renderCard(o, archived) {
           '<div class="badges">' + badges + '</div>' +
         '</div>' +
         '<div class="card-actions">' +
+          candAction +
           archiveBtn +
           '<button class="chevron" data-target="' + detId + '" aria-label="Détail">▾</button>' +
         '</div>' +

@@ -25,6 +25,10 @@ function run() {
     if (o.archive) {
       assert.ok(o.archive_motif, 'offre archivee sans motif : ' + o.id);
     }
+    if (o.candidature_status) {
+      assert.ok(['demandee', 'preparee', 'envoyee'].includes(o.candidature_status),
+        'candidature_status invalide : ' + o.id);
+    }
   });
 
   const b = build(data);
