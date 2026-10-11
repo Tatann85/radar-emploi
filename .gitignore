@@ -1,3 +1,6 @@
 _site/
 _preview_server.js
 node_modules/
+
+_git_cleanup.ps1
+_cleanup2.ps1
