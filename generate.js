@@ -50,10 +50,14 @@ header.hero p{color:var(--muted);margin:0;font-size:1.02rem}
 .stat{background:var(--panel);border:1px solid var(--border);border-radius:999px;
   padding:7px 16px;font-size:0.88rem;color:var(--muted)}
 .stat b{color:var(--text)}
-section.region{margin-top:34px}
-section.region h2{font-size:1.05rem;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--accent);margin:0 0 14px;display:flex;align-items:center;gap:10px}
-section.region h2 .count{color:var(--muted);font-weight:400;text-transform:none;
+.region-details{margin-top:34px}
+.region-details>summary{cursor:pointer;list-style:none;display:flex;align-items:center;
+  gap:10px;font-size:1.05rem;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--accent);padding:6px 0 14px;user-select:none}
+.region-details>summary::-webkit-details-marker{display:none}
+.region-details>summary:before{content:"▸";transition:transform .15s;font-size:.8rem}
+.region-details[open]>summary:before{transform:rotate(90deg)}
+.region-details .count{color:var(--muted);font-weight:400;text-transform:none;
   letter-spacing:0;font-size:.85rem}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
   padding:16px 18px;margin-bottom:10px;transition:border-color .15s}
@@ -67,18 +71,21 @@ section.region h2 .count{color:var(--muted);font-weight:400;text-transform:none;
   color:var(--muted);border:1px solid var(--border)}
 .badge.salaire{color:var(--accent);border-color:var(--accent-dark)}
 .badge.tt{color:var(--warn)}
-.card-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.chk{width:20px;height:20px;accent-color:var(--accent);cursor:pointer}
-.chevron{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;
-  padding:4px;line-height:1;transition:transform .15s}
+.card-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.chk{width:22px;height:22px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.chevron{display:inline-flex;align-items:center;justify-content:center;
+  width:40px;height:40px;background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:1.3rem;line-height:1;border-radius:10px;flex-shrink:0;transition:transform .15s,background .15s}
+.chevron:hover{background:var(--panel2)}
 .chevron.open{transform:rotate(180deg);color:var(--accent)}
 .details{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
   color:var(--muted);font-size:.92rem}
 .details.open{display:block}
 .details a{color:var(--accent);text-decoration:none}
 .details a:hover{text-decoration:underline}
-.archive-btn{background:none;border:1px solid var(--border);color:var(--muted);
-  cursor:pointer;font-size:1rem;padding:4px 8px;line-height:1;border-radius:8px;
+.archive-btn{display:inline-flex;align-items:center;justify-content:center;
+  width:40px;height:40px;background:none;border:1px solid var(--border);color:var(--muted);
+  cursor:pointer;font-size:1.1rem;line-height:1;border-radius:10px;flex-shrink:0;
   text-decoration:none;transition:border-color .15s,color .15s}
 .archive-btn:hover{border-color:var(--warn);color:var(--warn)}
 .job-descr{white-space:pre-wrap;margin:0 0 10px;padding:12px 14px;background:var(--panel2);
@@ -89,8 +96,8 @@ module.exports.CSS = CSS;
 const CSS2 = `
 .archives{margin-top:46px}
 .archives>summary{cursor:pointer;color:var(--muted);font-size:.95rem;
-  list-style:none;display:flex;align-items:center;gap:8px;padding:10px 0;
-  border-top:1px solid var(--border)}
+  list-style:none;display:flex;align-items:center;gap:8px;padding:14px 0;
+  border-top:1px solid var(--border);user-select:none}
 .archives>summary::-webkit-details-marker{display:none}
 .archives>summary:before{content:"▸";transition:transform .15s}
 .archives[open]>summary:before{transform:rotate(90deg)}
@@ -101,7 +108,9 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;margin-top:50px}
 @media(max-width:520px){
   header.hero h1{font-size:1.5rem}
   .card-top{flex-wrap:wrap}
-  .card-actions{margin-left:auto}
+  .card-actions{margin-left:auto;gap:4px}
+  .chevron,.archive-btn{width:44px;height:44px;font-size:1.35rem}
+  .chk{width:24px;height:24px}
 }
 `;
 module.exports.CSS2 = CSS2;
@@ -180,10 +189,10 @@ function build(data) {
 
   var sections = regionOrder.map(function (r) {
     var list = byRegion[r];
-    return '<section class="region"><h2>' + esc(regionLabel(r)) +
-      ' <span class="count">(' + list.length + ')</span></h2>' +
+    return '<details class="region-details" open><summary>' + esc(regionLabel(r)) +
+      ' <span class="count">(' + list.length + ')</span></summary>' +
       list.map(function (o) { return renderCard(o, false); }).join('') +
-      '</section>';
+      '</details>';
   }).join('');
 
   var archiveSection = archived.length ? (
