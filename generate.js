@@ -72,7 +72,6 @@ header.hero p{color:var(--muted);margin:0;font-size:1.02rem}
 .badge.salaire{color:var(--accent);border-color:var(--accent-dark)}
 .badge.tt{color:var(--warn)}
 .card-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.chk{width:22px;height:22px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
 .chevron{display:inline-flex;align-items:center;justify-content:center;
   width:40px;height:40px;background:none;border:none;color:var(--muted);cursor:pointer;
   font-size:1.3rem;line-height:1;border-radius:10px;flex-shrink:0;transition:transform .15s,background .15s}
@@ -119,7 +118,6 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;margin-top:50px}
   .card-top{flex-wrap:wrap}
   .card-actions{margin-left:auto;gap:4px}
   .chevron,.archive-btn,.postuler-btn{width:44px;height:44px;font-size:1.35rem}
-  .chk{width:24px;height:24px}
 }
 `;
 module.exports.CSS2 = CSS2;
@@ -132,17 +130,6 @@ document.querySelectorAll('.chevron').forEach(function(btn){
     btn.classList.toggle('open', open);
   });
 });
-try{
-  var saved = JSON.parse(localStorage.getItem('radar_interet') || '{}');
-  document.querySelectorAll('.chk').forEach(function(cb){
-    var id = cb.getAttribute('data-id');
-    if(saved[id]) cb.checked = true;
-    cb.addEventListener('change', function(){
-      saved[id] = cb.checked;
-      localStorage.setItem('radar_interet', JSON.stringify(saved));
-    });
-  });
-}catch(e){}
 `;
 module.exports.JS = JS;
 function renderCard(o, archived) {
@@ -185,7 +172,6 @@ function renderCard(o, archived) {
   return '' +
     '<div class="card' + (archived ? ' archive-card' : '') + '">' +
       '<div class="card-top">' +
-        (archived ? '' : '<input type="checkbox" class="chk" data-id="' + esc(o.id) + '" aria-label="Marquer un intérêt">') +
         '<div class="card-main">' +
           '<p class="card-title">' + esc(o.titre) + '</p>' +
           '<p class="card-sub">' + esc(o.entreprise) + ' — ' + esc(o.lieu) + '</p>' +
