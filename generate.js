@@ -106,6 +106,8 @@ header.hero p{color:var(--muted);margin:0;font-size:1.02rem}
   background:var(--panel2);color:var(--muted);border:1px solid var(--border);
   white-space:nowrap;flex-shrink:0}
 .candidature-badge.envoyee{color:var(--accent);border-color:var(--accent-dark)}
+.candidature-badge.refusee{color:#ffb3ad;border-color:#e5534b}
+.candidature-badge.entretien{color:#07211a;background:var(--accent);border-color:var(--accent)}
 .candidature-badge.pret{color:var(--warn);border-color:var(--warn);cursor:pointer;font-family:inherit}
 .cand-panel{margin-top:12px;padding:14px;border:1px solid var(--warn);border-radius:12px;
   background:var(--panel2);display:flex;flex-direction:column;gap:8px}
@@ -422,6 +424,10 @@ function renderCard(o, archived) {
   var candAction = '';
   if (archived) {
     candAction = '';
+  } else if (candStatus === 'refusee') {
+    candAction = '<span class="candidature-badge refusee">❌ Retour négatif</span>';
+  } else if (candStatus === 'entretien') {
+    candAction = '<span class="candidature-badge entretien">🎉 Retour positif</span>';
   } else if (candStatus === 'envoyee') {
     candAction = '<span class="candidature-badge envoyee">✓ Candidature envoyée</span>';
   } else if (candStatus === 'preparee' && o.candidature) {

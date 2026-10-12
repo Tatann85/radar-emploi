@@ -147,7 +147,7 @@ function run() {
       });
     }
     if (o.candidature_status) {
-      assert.ok(['demandee', 'preparee', 'envoyee'].includes(o.candidature_status),
+      assert.ok(['demandee', 'preparee', 'envoyee', 'refusee', 'entretien'].includes(o.candidature_status),
         'candidature_status invalide : ' + o.id);
     }
   });

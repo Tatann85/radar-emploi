@@ -15,7 +15,8 @@ const path = require('path');
 
 const DATA_PATH = process.env.OFFRES_PATH ||
   path.join(__dirname, '..', 'data', 'offres.json');
-const STATUTS = ['demandee', 'preparee', 'envoyee'];
+// refusee : retour négatif de l'employeur ; entretien : retour positif.
+const STATUTS = ['demandee', 'preparee', 'envoyee', 'refusee', 'entretien'];
 
 function idDepuisTitre(titre) {
   const m = String(titre || '').match(/^postuler:\s*(.+)$/i);
