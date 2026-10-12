@@ -206,6 +206,7 @@ function badge(texte){
 function locales(){ try { return JSON.parse(lire(LOCALES) || "{}"); } catch(e){ return {}; } }
 
 function montrer(card, action, bouton, texte){
+  if (!card) { return; }
   if (action === "archiver") {
     card.classList.add("archive-card");
     card.querySelectorAll("[data-action], .candidature-badge").forEach(function(x){ x.remove(); });
@@ -248,11 +249,19 @@ function montrer(card, action, bouton, texte){
   if (change) { ecrire(LOCALES, JSON.stringify(l)); }
 })();
 
-function archiverIci(id, el){
+function carte(id){ return document.querySelector('.card[data-id="' + id + '"]'); }
+
+function archiverIci(id){
   var l = locales();
   l[id] = Date.now();
   ecrire(LOCALES, JSON.stringify(l));
-  montrer(el.closest(".card"), "archiver", el, "Archivée sur cet appareil");
+  var card = carte(id);
+  if (card && !card.classList.contains("archive-card")) {
+    montrer(card, "archiver", null, "Archivée sur cet appareil");
+  } else if (card) {
+    var bg = card.querySelector(".candidature-badge");
+    if (bg) { bg.textContent = "Archivée sur cet appareil"; }
+  }
   bandeau("Archivée sur cet appareil seulement. Active le clic direct (🔑 en bas de page) pour l'enregistrer partout.");
 }
 
@@ -279,20 +288,31 @@ document.addEventListener("click", function(ev){
     (action === "archiver" ? " Annuler : archiver seulement sur cet appareil." : ""), "");
   v = v === null ? "" : v.trim();
   if (!v) {
-    if (action === "archiver") { archiverIci(id, el); }
+    if (action === "archiver") { archiverIci(id); }
     else { bandeau("Sans clé, la demande ne peut pas être enregistrée. Active le clic direct avec le bouton 🔑 en bas de page.", true); }
     return;
   }
+  // La poubelle fait toujours disparaître l'offre, même si la clé est refusée.
+  if (action === "archiver") { montrer(el.closest(".card"), "archiver", el); }
   validerCle(v).then(function(){ envoyer(v, action, id, el); })
-    .catch(function(e){ bandeau("Clé refusée, rien n'a été fait : " + e.message, true); });
+    .catch(function(e){
+      if (action === "archiver") {
+        archiverIci(id);
+        bandeau("Clé refusée (" + e.message + ") : offre archivée sur cet appareil seulement. Vérifie ta clé avec le bouton 🔑.", true);
+      } else {
+        bandeau("Clé refusée, rien n'a été fait : " + e.message, true);
+      }
+    });
 });
 
 function envoyer(cle, action, id, el){
-  var card = el.closest(".card");
+  var card = carte(id);
   var a = attente();
   a[id] = { action: action, t: Date.now() };
   sauverAttente(a);
-  montrer(card, action, el);
+  if (!(action === "archiver" && card && card.classList.contains("archive-card"))) {
+    montrer(card, action, el.isConnected ? el : null);
+  }
   fetch("https://api.github.com/repos/" + REPO + "/issues", {
     method: "POST",
     headers: { "Authorization": "Bearer " + cle, "Accept": "application/vnd.github+json", "Content-Type": "application/json" },
@@ -304,7 +324,12 @@ function envoyer(cle, action, id, el){
       : "Restauration demandée.");
   }).catch(function(e){
     var b = attente(); delete b[id]; sauverAttente(b);
-    bandeau("Échec, rien n'a été enregistré : " + e.message + ". Recharge la page avant de réessayer.", true);
+    if (action === "archiver") {
+      archiverIci(id);
+      bandeau("GitHub a refusé (" + e.message + ") : offre archivée sur cet appareil seulement. Vérifie ta clé avec le bouton 🔑.", true);
+    } else {
+      bandeau("Échec, rien n'a été enregistré : " + e.message + ". Recharge la page avant de réessayer.", true);
+    }
   });
 }
 
