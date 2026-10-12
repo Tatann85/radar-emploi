@@ -304,9 +304,10 @@
       "url": "https://www.linkedin.com/jobs/view/4463015568",
       "source": "LinkedIn",
       "notes": null,
-      "archive": false,
-      "archive_motif": null,
-      "description": "Chez Astek, intégration d'un acteur clé de la mobilité nationale, programme stratégique sur un service backend essentiel (anti-fraude, embarquement, service à bord, contrôle, opérations terrain). Équipe produit expérimentée : 6 développeurs, 2 PPO, 1 Ops, 1 QA, 1 Agile Master, 1 Delivery Manager.\n\nMissions : référent fonctionnel client/équipe, accompagnement de l'expression des besoins, suivi des rituels agiles (daily, grooming, sprint planning), gestion et structuration du backlog, rédaction de User Stories et critères d'acceptation, garant de la qualité des livrables, définition et suivi des KPI, partage de bonnes pratiques.\n\nStack : Jira, Confluence, Scrum, SI complexe multi-services.\n\nProfil : école d'ingénieur ou Bac+5, 5 ans d'expérience minimum, capacité d'analyse/synthèse/décision. Process : 2 entretiens maximum. Astek valorisée #TopEmployer2026. Nantes, hybride."
+      "archive": true,
+      "archive_motif": "Archivée depuis le site le 2026-10-12.",
+      "description": "Chez Astek, intégration d'un acteur clé de la mobilité nationale, programme stratégique sur un service backend essentiel (anti-fraude, embarquement, service à bord, contrôle, opérations terrain). Équipe produit expérimentée : 6 développeurs, 2 PPO, 1 Ops, 1 QA, 1 Agile Master, 1 Delivery Manager.\n\nMissions : référent fonctionnel client/équipe, accompagnement de l'expression des besoins, suivi des rituels agiles (daily, grooming, sprint planning), gestion et structuration du backlog, rédaction de User Stories et critères d'acceptation, garant de la qualité des livrables, définition et suivi des KPI, partage de bonnes pratiques.\n\nStack : Jira, Confluence, Scrum, SI complexe multi-services.\n\nProfil : école d'ingénieur ou Bac+5, 5 ans d'expérience minimum, capacité d'analyse/synthèse/décision. Process : 2 entretiens maximum. Astek valorisée #TopEmployer2026. Nantes, hybride.",
+      "archive_date": "2026-10-12"
     },
     {
       "id": "paprec-saint-herblain-po",
