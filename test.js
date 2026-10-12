@@ -4,6 +4,65 @@
 const assert = require('assert');
 const { DATA_PATH, build } = require('./generate.js');
 const fs = require('fs');
+const { appliquer } = require('./scripts/postuler-issue.js');
+
+// Statuts de candidature (scripts/postuler-issue.js), sur un jeu de données
+// fictif : aucune lecture ni écriture de fichier.
+function testPostuler() {
+  function jeu() {
+    return { offres: [
+      { id: 'a', archive: false },
+      { id: 'b', archive: true },
+      { id: 'c', archive: false, candidature_status: 'preparee' },
+      { id: 'd', archive: false, candidature_status: 'envoyee' }
+    ] };
+  }
+  function offre(d, id) { return d.offres.find(function (o) { return o.id === id; }); }
+  let cas = 0;
+  function verifie(condition, libelle) { cas += 1; assert.ok(condition, 'postuler : ' + libelle); }
+
+  let d = jeu();
+  let r = appliquer(d, { action: 'opened', titre: 'postuler: a' });
+  verifie(r.changed && offre(d, 'a').candidature_status === 'demandee', 'ouverture -> demandee');
+  r = appliquer(d, { action: 'opened', titre: 'postuler: a' });
+  verifie(!r.changed && offre(d, 'a').candidature_status === 'demandee', 'seconde ouverture sans effet');
+
+  d = jeu();
+  r = appliquer(d, { action: 'opened', titre: 'postuler: b' });
+  verifie(!r.changed && !('candidature_status' in offre(d, 'b')), 'offre archivee refusee');
+  r = appliquer(d, { action: 'opened', titre: 'postuler: inconnue' });
+  verifie(!r.changed && r.id === '', 'offre introuvable refusee, id non renvoye');
+  r = appliquer(d, { action: 'opened', titre: 'archiver: a' });
+  verifie(!r.changed, 'titre qui ne commence pas par postuler refuse');
+  assert.deepStrictEqual(d, jeu(), 'postuler : un refus ne modifie aucune donnee');
+
+  d = jeu();
+  r = appliquer(d, { action: 'closed', titre: 'postuler: c', raison: 'completed' });
+  verifie(r.changed && offre(d, 'c').candidature_status === 'envoyee', 'fermeture terminee -> envoyee');
+  r = appliquer(d, { action: 'closed', titre: 'postuler: c', raison: 'not_planned' });
+  verifie(!r.changed && offre(d, 'c').candidature_status === 'envoyee', 'une candidature envoyee ne s\'annule pas');
+
+  d = jeu();
+  r = appliquer(d, { action: 'closed', titre: 'postuler: c', raison: 'not_planned' });
+  verifie(r.changed && !('candidature_status' in offre(d, 'c')), 'fermeture non planifiee -> statut retire');
+  d = jeu();
+  r = appliquer(d, { action: 'closed', titre: 'postuler: c', raison: '' });
+  verifie(!r.changed && offre(d, 'c').candidature_status === 'preparee', 'fermeture sans motif sans effet');
+
+  d = jeu();
+  r = appliquer(d, { action: 'dispatch', id: 'a', statut: 'preparee' });
+  verifie(r.changed && offre(d, 'a').candidature_status === 'preparee', 'lancement manuel -> preparee');
+  r = appliquer(d, { action: 'dispatch', id: 'a', statut: 'aucun' });
+  verifie(r.changed && !('candidature_status' in offre(d, 'a')), 'lancement manuel aucun -> statut retire');
+  r = appliquer(d, { action: 'dispatch', id: 'a', statut: 'nimporte' });
+  verifie(!r.changed, 'statut invalide refuse');
+  r = appliquer(d, { action: 'dispatch', id: 'b', statut: 'preparee' });
+  verifie(!r.changed, 'lancement manuel sur offre archivee refuse');
+  r = appliquer(d, { action: 'autre', titre: 'postuler: a' });
+  verifie(!r.changed, 'action inconnue refusee');
+
+  return cas;
+}
 
 function run() {
   const raw = fs.readFileSync(DATA_PATH, 'utf8');
@@ -37,6 +96,9 @@ function run() {
 
   console.log('OK : ' + data.offres.length + ' offres valides, ' +
     b.activeCount + ' actives, ' + b.archiveCount + ' archivees.');
+
+  const cas = testPostuler();
+  console.log('OK : statuts de candidature, ' + cas + ' cas verifies.');
 }
 
 try {

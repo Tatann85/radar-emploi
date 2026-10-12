@@ -1,0 +1,117 @@
+name: Candidature depuis une issue
+
+# Tient le champ candidature_status de data/offres.json à partir des demandes
+# "postuler: <id>" ouvertes par le bouton du site. Ne prépare ni n'envoie
+# aucune candidature : il affiche seulement où en est la demande.
+#
+#   demande ouverte                      -> "demandee"
+#   demande fermée comme terminée        -> "envoyee"
+#   demande fermée comme non planifiée   -> statut retiré (demande annulée)
+#   lancement manuel (id + statut)       -> le statut choisi
+#
+# Seul le propriétaire du dépôt est écouté : le dépôt est public, n'importe qui
+# peut y ouvrir une issue.
+
+on:
+  issues:
+    types: [opened, closed]
+  workflow_dispatch:
+    inputs:
+      id:
+        description: "Identifiant de l'offre (champ id de data/offres.json)"
+        required: true
+        type: string
+      statut:
+        description: "Statut à poser (aucun = retirer le statut)"
+        required: true
+        type: choice
+        options:
+          - demandee
+          - preparee
+          - envoyee
+          - aucun
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: offres-json
+  cancel-in-progress: false
+
+jobs:
+  postuler:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (startsWith(github.event.issue.title, 'postuler:') &&
+      github.event.issue.user.login == github.repository_owner &&
+      github.event.sender.login == github.repository_owner)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Mettre à jour le statut de candidature
+        id: apply
+        env:
+          DEMANDE_ACTION: ${{ github.event_name == 'workflow_dispatch' && 'dispatch' || github.event.action }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_STATE_REASON: ${{ github.event.issue.state_reason }}
+          INPUT_ID: ${{ inputs.id }}
+          INPUT_STATUT: ${{ inputs.statut }}
+        run: node scripts/postuler-issue.js
+
+      - name: Vérifier les données avant de les pousser (W-13)
+        if: steps.apply.outputs.changed == 'true'
+        run: node test.js
+
+      - name: Committer et pousser
+        if: steps.apply.outputs.changed == 'true'
+        env:
+          OFFRE_ID: ${{ steps.apply.outputs.id }}
+          STATUT: ${{ steps.apply.outputs.statut }}
+        run: |
+          git config user.name "radar-emploi-bot"
+          git config user.email "actions@github.com"
+          git add data/offres.json
+          git commit -m "Candidature: $OFFRE_ID -> $STATUT"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      # Un push fait par le robot ne déclenche pas le déploiement : on le lance.
+      - name: Republier le site
+        if: steps.apply.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run deploy.yml --ref main
+
+      - name: Répondre sur la demande
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMERO: ${{ github.event.issue.number }}
+          ACTION: ${{ github.event.action }}
+          CHANGED: ${{ steps.apply.outputs.changed }}
+          MESSAGE: ${{ steps.apply.outputs.message }}
+        run: |
+          CORPS="$MESSAGE"
+          if [ "$CHANGED" = "true" ]; then
+            CORPS="$CORPS Le site se met à jour dans quelques minutes."
+          fi
+          if [ "$ACTION" = "opened" ] && [ "$CHANGED" = "true" ]; then
+            CORPS="$CORPS Pour la suite : fermer cette demande comme terminée quand la candidature est partie, ou comme non planifiée pour l'annuler."
+          fi
+          gh issue comment "$NUMERO" --body "$CORPS"
+          if [ "$ACTION" = "opened" ] && [ "$CHANGED" != "true" ]; then
+            gh issue close "$NUMERO" --reason "not planned"
+          fi
