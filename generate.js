@@ -83,8 +83,8 @@ header.hero p{color:var(--muted);margin:0;font-size:1.02rem}
 .badge.tt{color:var(--warn)}
 .card-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .chevron{display:inline-flex;align-items:center;justify-content:center;
-  width:40px;height:40px;background:none;border:none;color:var(--muted);cursor:pointer;
-  font-size:1.3rem;line-height:1;border-radius:10px;flex-shrink:0;transition:transform .15s,background .15s}
+  width:48px;height:48px;background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:1.75rem;line-height:1;border-radius:10px;flex-shrink:0;transition:transform .15s,background .15s}
 .chevron:hover{background:var(--panel2)}
 .chevron.open{transform:rotate(180deg);color:var(--accent)}
 .details{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
@@ -93,13 +93,13 @@ header.hero p{color:var(--muted);margin:0;font-size:1.02rem}
 .details a{color:var(--accent);text-decoration:none}
 .details a:hover{text-decoration:underline}
 .archive-btn{display:inline-flex;align-items:center;justify-content:center;
-  width:40px;height:40px;background:none;border:1px solid var(--border);color:var(--muted);
-  cursor:pointer;font-size:1.1rem;line-height:1;border-radius:10px;flex-shrink:0;
+  width:48px;height:48px;background:none;border:1px solid var(--border);color:var(--muted);
+  cursor:pointer;font-size:1.55rem;line-height:1;border-radius:10px;flex-shrink:0;
   text-decoration:none;transition:border-color .15s,color .15s}
 .archive-btn:hover{border-color:var(--warn);color:var(--warn)}
 .postuler-btn{display:inline-flex;align-items:center;justify-content:center;
-  width:40px;height:40px;background:none;border:1px solid var(--accent-dark);color:var(--accent);
-  cursor:pointer;font-size:1.1rem;line-height:1;border-radius:10px;flex-shrink:0;
+  width:48px;height:48px;background:none;border:1px solid var(--accent-dark);color:var(--accent);
+  cursor:pointer;font-size:1.55rem;line-height:1;border-radius:10px;flex-shrink:0;
   text-decoration:none;transition:background .15s,color .15s}
 .postuler-btn:hover{background:var(--accent);color:#07211a}
 .candidature-badge{font-size:.75rem;padding:6px 10px;border-radius:999px;
@@ -124,8 +124,8 @@ const CSS2 = `
 .archive-motif{color:var(--warn);font-size:.85rem;margin-top:8px}
 .archives .hint{font-size:.8rem;opacity:.75}
 .restore-btn{display:inline-flex;align-items:center;justify-content:center;
-  width:40px;height:40px;background:none;border:1px solid var(--border);color:var(--muted);
-  cursor:pointer;font-size:1.1rem;line-height:1;border-radius:10px;flex-shrink:0;
+  width:48px;height:48px;background:none;border:1px solid var(--border);color:var(--muted);
+  cursor:pointer;font-size:1.55rem;line-height:1;border-radius:10px;flex-shrink:0;
   text-decoration:none;transition:border-color .15s,color .15s}
 .restore-btn:hover{border-color:var(--accent);color:var(--accent)}
 .bandeau{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;max-width:92%;
@@ -141,7 +141,7 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;margin-top:50px}
   header.hero h1{font-size:1.5rem}
   .card-top{flex-wrap:wrap}
   .card-actions{margin-left:auto;gap:4px}
-  .chevron,.archive-btn,.postuler-btn,.restore-btn{width:44px;height:44px;font-size:1.35rem}
+  .chevron,.archive-btn,.postuler-btn,.restore-btn{width:52px;height:52px;font-size:1.75rem}
 }
 `;
 module.exports.CSS2 = CSS2;
