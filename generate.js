@@ -106,7 +106,19 @@ header.hero p{color:var(--muted);margin:0;font-size:1.02rem}
   background:var(--panel2);color:var(--muted);border:1px solid var(--border);
   white-space:nowrap;flex-shrink:0}
 .candidature-badge.envoyee{color:var(--accent);border-color:var(--accent-dark)}
-.candidature-badge.pret{color:var(--warn);border-color:var(--warn)}
+.candidature-badge.pret{color:var(--warn);border-color:var(--warn);cursor:pointer;font-family:inherit}
+.cand-panel{margin-top:12px;padding:14px;border:1px solid var(--warn);border-radius:12px;
+  background:var(--panel2);display:flex;flex-direction:column;gap:8px}
+.cand-panel[hidden]{display:none}
+.cand-titre{margin:0 0 4px;font-weight:600}
+.cand-info{margin:4px 0;color:var(--muted);font-size:.92rem}
+.cand-info b{color:var(--text)}
+.cand-lien{display:block;padding:12px 14px;border-radius:10px;border:1px solid var(--border);
+  background:var(--panel);color:var(--text);text-decoration:none;font-size:.98rem;text-align:left;
+  font-family:inherit;cursor:pointer}
+.cand-lien:hover{border-color:var(--accent)}
+.cand-lien.principal{background:var(--accent);color:#07211a;border-color:var(--accent);font-weight:700;text-align:center}
+.cand-lien.envoye{text-align:center;color:var(--accent);border-color:var(--accent-dark)}
 .job-descr{white-space:pre-wrap;margin:0 0 10px;padding:12px 14px;background:var(--panel2);
   border:1px solid var(--border);border-radius:10px;font-size:.88rem;max-height:340px;
   overflow-y:auto}
@@ -217,10 +229,22 @@ function montrer(card, action, bouton, texte){
     card.querySelector(".card-actions").insertBefore(badge(texte || "Archivage en cours…"), card.querySelector(".chevron"));
     document.getElementById("archives").appendChild(card);
     compter();
+  } else if (action === "envoyee") {
+    var pan = card.querySelector(".cand-panel");
+    if (pan) { pan.remove(); }
+    var bp = card.querySelector(".candidature-badge");
+    if (bp) { bp.replaceWith(badge("✓ Candidature envoyée")); }
   } else if (bouton) {
     bouton.replaceWith(badge(action === "postuler" ? "⏳ En préparation" : "Restauration en cours…"));
   }
 }
+
+document.addEventListener("click", function(ev){
+  var t = ev.target.closest("[data-panneau]");
+  if (!t) { return; }
+  var p = document.getElementById(t.getAttribute("data-panneau"));
+  if (p) { p.hidden = !p.hidden; }
+});
 
 (function(){
   var a = attente(), maintenant = Date.now(), change = false;
@@ -230,7 +254,8 @@ function montrer(card, action, bouton, texte){
     var fait = !card ||
       (p.action === "archiver" && card.getAttribute("data-archive") === "1") ||
       (p.action === "restaurer" && card.getAttribute("data-archive") !== "1") ||
-      (p.action === "postuler" && !card.querySelector('[data-action="postuler"]'));
+      (p.action === "postuler" && !card.querySelector('[data-action="postuler"]')) ||
+      (p.action === "envoyee" && !card.querySelector('[data-action="envoyee"]'));
     if (fait) { delete a[id]; change = true; return; }
     if (maintenant - p.t > DELAI_ALERTE) {
       delete a[id]; change = true;
@@ -327,6 +352,8 @@ function envoyer(cle, action, id, el){
     if (action === "postuler") {
       bandeau("✅ C'est parti pour « " + titre + " ». Je prépare la lettre et l'ajustement du CV ; " +
         "le dossier t'attendra dans ton Drive, et rien ne part au recruteur sans ton accord.", false, 8000);
+    } else if (action === "envoyee") {
+      bandeau("✅ Noté : candidature envoyée pour « " + titre + " ».", false, 6000);
     } else {
       bandeau(action === "archiver" ? "✅ Archivée." : "✅ Restauration demandée.");
     }
@@ -392,6 +419,9 @@ function renderCard(o, archived) {
     candAction = '';
   } else if (candStatus === 'envoyee') {
     candAction = '<span class="candidature-badge envoyee">✓ Candidature envoyée</span>';
+  } else if (candStatus === 'preparee' && o.candidature) {
+    candAction = '<button class="candidature-badge pret" type="button" data-panneau="cand-' + esc(o.id) + '">' +
+      '📄 Dossier prêt : relire et postuler</button>';
   } else if (candStatus === 'preparee') {
     candAction = '<span class="candidature-badge pret">📄 Dossier prêt, à valider</span>';
   } else if (candStatus === 'demandee') {
@@ -401,6 +431,21 @@ function renderCard(o, archived) {
       postulerUrl + '" target="_blank" rel="noopener" ' +
       'aria-label="Postuler à cette offre" title="Postuler">➤</a>';
   }
+
+  // Panneau de relecture : la lettre, l'ajustement du CV, la prétention, puis
+  // le lien pour postuler sur l'annonce et le bouton pour noter l'envoi.
+  var c = o.candidature;
+  var panneau = (!archived && candStatus === 'preparee' && c) ? (
+    '<div class="cand-panel" id="cand-' + esc(o.id) + '" hidden>' +
+      '<p class="cand-titre">Ta candidature est prête. Relis, puis postule :</p>' +
+      '<a class="cand-lien" href="' + esc(c.lettre) + '" target="_blank" rel="noopener">📝 Relire la lettre de motivation</a>' +
+      '<a class="cand-lien" href="' + esc(c.note_cv) + '" target="_blank" rel="noopener">🧾 Relire l\'ajustement du CV</a>' +
+      '<a class="cand-lien" href="' + esc(c.dossier) + '" target="_blank" rel="noopener">📂 Ouvrir tout le dossier</a>' +
+      (c.pretention ? '<p class="cand-info">💶 Si on te demande ta prétention : <b>' + esc(c.pretention) + '</b></p>' : '') +
+      '<a class="cand-lien principal" href="' + esc(o.url) + '" target="_blank" rel="noopener">➤ Postuler sur l\'annonce</a>' +
+      '<button class="cand-lien envoye" type="button" data-action="envoyee" data-id="' + esc(o.id) + '">✓ C\'est envoyé</button>' +
+    '</div>'
+  ) : '';
 
   return '' +
     '<div class="card' + (archived ? ' archive-card' : '') + '" data-id="' + esc(o.id) + '"' +
@@ -418,6 +463,7 @@ function renderCard(o, archived) {
           '<button class="chevron" data-target="' + detId + '" aria-label="Détail">▾</button>' +
         '</div>' +
       '</div>' +
+      panneau +
       '<div class="details" id="' + detId + '">' +
         notes + descr + motif +
         '<p><a href="' + esc(o.url) + '" target="_blank" rel="noopener">Voir l\'offre originale →</a></p>' +

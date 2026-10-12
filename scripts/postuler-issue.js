@@ -22,6 +22,12 @@ function idDepuisTitre(titre) {
   return m ? m[1].trim() : null;
 }
 
+// "postuler: <id>" (bouton ➤) ou "envoyee: <id>" (bouton « C'est envoyé »).
+function lireTitre(titre) {
+  const m = String(titre || '').match(/^(postuler|envoyee):\s*(.+)$/i);
+  return m ? { type: m[1].toLowerCase(), id: m[2].trim() } : null;
+}
+
 function refus(message) {
   return { changed: false, id: '', statut: '', message: message };
 }
@@ -31,9 +37,14 @@ function refus(message) {
 // demande = { action: 'opened' | 'closed' | 'dispatch', titre, raison, id, statut }
 function appliquer(data, demande) {
   const action = demande.action;
-  const id = action === 'dispatch'
-    ? String(demande.id || '').trim()
-    : idDepuisTitre(demande.titre);
+  let id = null;
+  let type = 'postuler';
+  if (action === 'dispatch') {
+    id = String(demande.id || '').trim();
+  } else {
+    const t = lireTitre(demande.titre);
+    if (t) { id = t.id; type = t.type; }
+  }
   if (!id) return refus('Titre ou identifiant inattendu, rien à faire.');
 
   const offre = (data.offres || []).find(function (o) { return o.id === id; });
@@ -42,7 +53,10 @@ function appliquer(data, demande) {
   const actuel = offre.candidature_status || null;
   let cible;
 
-  if (action === 'opened') {
+  if (type === 'envoyee') {
+    if (action !== 'opened') return refus('Rien à faire.');
+    cible = 'envoyee';
+  } else if (action === 'opened') {
     if (offre.archive) return refus('Offre archivée : la demande est ignorée.');
     if (actuel) return refus('Une candidature est déjà en cours (statut : ' + actuel + ').');
     cible = 'demandee';

@@ -109,6 +109,12 @@ function testPostuler() {
   r = appliquer(d, { action: 'autre', titre: 'postuler: a' });
   verifie(!r.changed, 'action inconnue refusee');
 
+  d = jeu();
+  r = appliquer(d, { action: 'opened', titre: 'envoyee: c' });
+  verifie(r.changed && offre(d, 'c').candidature_status === 'envoyee', 'bouton envoye -> envoyee');
+  r = appliquer(d, { action: 'closed', titre: 'envoyee: c', raison: 'not_planned' });
+  verifie(!r.changed && offre(d, 'c').candidature_status === 'envoyee', 'fermeture d\'une demande envoyee sans effet');
+
   return cas;
 }
 
@@ -133,6 +139,12 @@ function run() {
       assert.ok(o.archive_motif, 'offre archivee sans motif : ' + o.id);
       assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(o.archive_date || ''),
         'offre archivee sans date d\'archivage : ' + o.id);
+    }
+    if (o.candidature) {
+      ['lettre', 'note_cv', 'dossier'].forEach(function (k) {
+        assert.ok(/^https:\/\/drive\.google\.com\//.test(o.candidature[k] || ''),
+          'lien de dossier invalide (' + k + ') : ' + o.id);
+      });
     }
     if (o.candidature_status) {
       assert.ok(['demandee', 'preparee', 'envoyee'].includes(o.candidature_status),

@@ -44,7 +44,8 @@ jobs:
   postuler:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (startsWith(github.event.issue.title, 'postuler:') &&
+      ((startsWith(github.event.issue.title, 'postuler:') ||
+      startsWith(github.event.issue.title, 'envoyee:')) &&
       github.event.issue.user.login == github.repository_owner &&
       github.event.sender.login == github.repository_owner)
     runs-on: ubuntu-latest
@@ -101,9 +102,19 @@ jobs:
           GH_REPO: ${{ github.repository }}
           NUMERO: ${{ github.event.issue.number }}
           ACTION: ${{ github.event.action }}
+          TITRE: ${{ github.event.issue.title }}
           CHANGED: ${{ steps.apply.outputs.changed }}
           MESSAGE: ${{ steps.apply.outputs.message }}
         run: |
+          case "$TITRE" in
+            envoyee:*)
+              if [ "$ACTION" = "opened" ]; then
+                gh issue comment "$NUMERO" --body "$MESSAGE"
+                gh issue close "$NUMERO" --reason "completed"
+              fi
+              exit 0
+              ;;
+          esac
           CORPS="$MESSAGE"
           if [ "$CHANGED" = "true" ]; then
             CORPS="$CORPS Le site se met à jour dans quelques minutes."
