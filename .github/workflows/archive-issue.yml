@@ -1,5 +1,10 @@
 name: Archivage depuis une issue
 
+# Traite les demandes "archiver: <id>" et "restaurer: <id>" ouvertes depuis le
+# site (en un clic avec la clé du navigateur, ou par la page GitHub).
+# Seul le propriétaire du dépôt est écouté : le dépôt est public, n'importe qui
+# peut y ouvrir une issue.
+
 on:
   issues:
     types: [opened]
@@ -7,10 +12,19 @@ on:
 permissions:
   contents: write
   issues: write
+  actions: write
+
+concurrency:
+  group: offres-json
+  cancel-in-progress: false
 
 jobs:
   archive:
-    if: startsWith(github.event.issue.title, 'archiver:')
+    if: >-
+      (startsWith(github.event.issue.title, 'archiver:') ||
+      startsWith(github.event.issue.title, 'restaurer:')) &&
+      github.event.issue.user.login == github.repository_owner &&
+      github.event.sender.login == github.repository_owner
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le dépôt
@@ -23,38 +37,53 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Appliquer l'archivage
+      - name: Appliquer la demande
         id: apply
         env:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: node scripts/archive-issue.js
 
+      - name: Vérifier les données avant de les pousser (W-13)
+        if: steps.apply.outputs.changed == 'true'
+        run: node test.js
+
       - name: Committer et pousser
         if: steps.apply.outputs.changed == 'true'
+        env:
+          OFFRE_ID: ${{ steps.apply.outputs.id }}
+          ACTION: ${{ steps.apply.outputs.action }}
         run: |
           git config user.name "radar-emploi-bot"
           git config user.email "actions@github.com"
           git add data/offres.json
-          git commit -m "Archive: ${{ steps.apply.outputs.id }}"
-          git push
+          if [ "$ACTION" = "restaurer" ]; then
+            git commit -m "Restauration: $OFFRE_ID"
+          else
+            git commit -m "Archive: $OFFRE_ID"
+          fi
+          git pull --rebase origin main
+          git push origin HEAD:main
 
-      - name: Commenter et fermer l'issue
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const changed = '${{ steps.apply.outputs.changed }}' === 'true';
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: changed
-                ? '✅ Offre archivée, le site se mettra à jour dans la minute.'
-                : '⚠️ Offre introuvable ou déjà archivée, aucune modification effectuée.'
-            });
-            await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              state: 'closed'
-            });
+      # Un push fait par le robot ne déclenche pas le déploiement : on le lance.
+      - name: Republier le site
+        if: steps.apply.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run deploy.yml --ref main
+
+      - name: Répondre et fermer la demande
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMERO: ${{ github.event.issue.number }}
+          CHANGED: ${{ steps.apply.outputs.changed }}
+          MESSAGE: ${{ steps.apply.outputs.message }}
+        run: |
+          gh issue comment "$NUMERO" --body "$MESSAGE"
+          if [ "$CHANGED" = "true" ]; then
+            gh issue close "$NUMERO" --reason "completed"
+          else
+            gh issue close "$NUMERO" --reason "not planned"
+          fi

@@ -1,49 +1,85 @@
-// Traite une issue "archiver: <id>" créée depuis le bouton 🗄 du site.
+// Traite une demande "archiver: <id>" ou "restaurer: <id>" venue du site
+// (bouton 🗄 ou ↩, en un clic avec la clé du navigateur, ou par la page GitHub).
 // Lu par .github/workflows/archive-issue.yml. Aucune dépendance externe.
+//
+// Une offre archivée reste dans data/offres.json avec sa date d'archivage :
+// le site l'affiche dans l'onglet Archives pendant 30 jours, puis ne l'affiche
+// plus (generate.js), mais la veille sait toujours qu'elle a été écartée.
 'use strict';
 const fs = require('fs');
 const path = require('path');
 
-const DATA_PATH = path.join(__dirname, '..', 'data', 'offres.json');
+const DATA_PATH = process.env.OFFRES_PATH ||
+  path.join(__dirname, '..', 'data', 'offres.json');
+
+const PROMPT_MOTIF = 'Motif (optionnel), à remplacer avant de valider :';
+const CORPS_UN_CLIC = 'Demande envoyée depuis le site en un clic.';
+
+function refus(message) {
+  return { changed: false, id: '', action: '', message: message };
+}
+
+function motifDepuisCorps(corps) {
+  const texte = String(corps || '')
+    .replace(PROMPT_MOTIF, '')
+    .replace(CORPS_UN_CLIC, '')
+    .trim();
+  return texte || null;
+}
+
+// Fonction pure : ne lit ni n'écrit aucun fichier, ne va pas sur le réseau.
+// demande = { titre, corps, aujourdhui: 'AAAA-MM-JJ' }
+function appliquerArchive(data, demande) {
+  const m = String(demande.titre || '').match(/^(archiver|restaurer):\s*(.+)$/i);
+  if (!m) return refus('Titre inattendu, rien à faire.');
+  const action = m[1].toLowerCase();
+  const id = m[2].trim();
+  const offre = (data.offres || []).find(function (o) { return o.id === id; });
+  if (!offre) return refus('Offre introuvable, aucune modification.');
+
+  if (action === 'archiver') {
+    if (offre.archive) return refus('Offre déjà archivée, aucune modification.');
+    offre.archive = true;
+    offre.archive_motif = motifDepuisCorps(demande.corps) ||
+      'Archivée depuis le site le ' + demande.aujourdhui + '.';
+    offre.archive_date = demande.aujourdhui;
+    return { changed: true, id: offre.id, action: action,
+      message: 'Offre archivée : elle reste 30 jours dans l\'onglet Archives du site.' };
+  }
+
+  if (!offre.archive) return refus('Offre déjà active, aucune modification.');
+  offre.archive = false;
+  offre.archive_motif = null;
+  delete offre.archive_date;
+  return { changed: true, id: offre.id, action: action,
+    message: 'Offre restaurée : elle revient dans la liste des offres actives.' };
+}
 
 function setOutput(name, value) {
   const file = process.env.GITHUB_OUTPUT;
-  if (file) fs.appendFileSync(file, name + '=' + value + '\n');
+  const propre = String(value).replace(/[\r\n]+/g, ' ');
+  if (file) fs.appendFileSync(file, name + '=' + propre + '\n');
 }
 
 function main() {
-  const title = process.env.ISSUE_TITLE || '';
-  const body = process.env.ISSUE_BODY || '';
-  const m = title.match(/^archiver:\s*(.+)$/i);
-  if (!m) {
-    console.log('Titre inattendu, rien à faire : ' + title);
-    setOutput('changed', 'false');
-    return;
-  }
-  const id = m[1].trim();
   const data = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
-  const offre = data.offres.find(function (o) { return o.id === id; });
-  if (!offre) {
-    console.log('Offre introuvable : ' + id);
-    setOutput('changed', 'false');
-    setOutput('id', id);
-    return;
+  const res = appliquerArchive(data, {
+    titre: process.env.ISSUE_TITLE || '',
+    corps: process.env.ISSUE_BODY || '',
+    aujourdhui: new Date().toISOString().slice(0, 10)
+  });
+  if (res.changed) {
+    fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2) + '\n', 'utf8');
   }
-  if (offre.archive) {
-    console.log('Déjà archivée : ' + id);
-    setOutput('changed', 'false');
-    setOutput('id', id);
-    return;
-  }
-  var motif = body
-    .replace('Motif (optionnel), à remplacer avant de valider :', '')
-    .trim();
-  offre.archive = true;
-  offre.archive_motif = motif || 'Archivée depuis le site le ' + new Date().toISOString().slice(0, 10) + '.';
-  fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2) + '\n', 'utf8');
-  console.log('Archivée : ' + id);
-  setOutput('changed', 'true');
-  setOutput('id', id);
+  console.log(res.message + (res.id ? ' (' + res.id + ')' : ''));
+  setOutput('changed', res.changed ? 'true' : 'false');
+  setOutput('id', res.id);
+  setOutput('action', res.action);
+  setOutput('message', res.message);
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { appliquerArchive: appliquerArchive, motifDepuisCorps: motifDepuisCorps };

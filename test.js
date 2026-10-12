@@ -2,9 +2,57 @@
 // génération. Pas de réseau, pas d'écriture de fichier, quelques secondes max.
 'use strict';
 const assert = require('assert');
-const { DATA_PATH, build } = require('./generate.js');
+const { DATA_PATH, build, archiveVisible } = require('./generate.js');
 const fs = require('fs');
 const { appliquer } = require('./scripts/postuler-issue.js');
+const { appliquerArchive } = require('./scripts/archive-issue.js');
+
+// Archivage et restauration (scripts/archive-issue.js), et règle des 30 jours
+// (generate.js). Jeu de données fictif : aucune lecture ni écriture de fichier.
+function testArchive() {
+  function jeu() {
+    return { offres: [
+      { id: 'a', archive: false, archive_motif: null },
+      { id: 'b', archive: true, archive_motif: 'Hors profil.', archive_date: '2026-10-01' }
+    ] };
+  }
+  function offre(d, id) { return d.offres.find(function (o) { return o.id === id; }); }
+  let cas = 0;
+  function verifie(condition, libelle) { cas += 1; assert.ok(condition, 'archive : ' + libelle); }
+  const J = '2026-10-12';
+
+  let d = jeu();
+  let r = appliquerArchive(d, { titre: 'archiver: a', corps: 'Demande envoyée depuis le site en un clic.', aujourdhui: J });
+  verifie(r.changed && offre(d, 'a').archive === true && offre(d, 'a').archive_date === J, 'un clic archive et date');
+  verifie(offre(d, 'a').archive_motif === 'Archivée depuis le site le ' + J + '.', 'motif par défaut en un clic');
+  r = appliquerArchive(d, { titre: 'archiver: a', corps: '', aujourdhui: J });
+  verifie(!r.changed, 'seconde archive sans effet');
+
+  d = jeu();
+  r = appliquerArchive(d, { titre: 'archiver: a', corps: 'Motif (optionnel), à remplacer avant de valider :\n\nTrop loin.', aujourdhui: J });
+  verifie(offre(d, 'a').archive_motif === 'Trop loin.', 'motif saisi conservé');
+
+  d = jeu();
+  r = appliquerArchive(d, { titre: 'restaurer: b', corps: '', aujourdhui: J });
+  verifie(r.changed && offre(d, 'b').archive === false && !('archive_date' in offre(d, 'b')) &&
+    offre(d, 'b').archive_motif === null, 'restauration');
+  r = appliquerArchive(d, { titre: 'restaurer: b', corps: '', aujourdhui: J });
+  verifie(!r.changed, 'seconde restauration sans effet');
+
+  d = jeu();
+  r = appliquerArchive(d, { titre: 'archiver: inconnue', corps: '', aujourdhui: J });
+  verifie(!r.changed && r.id === '', 'offre introuvable refusée');
+  r = appliquerArchive(d, { titre: 'postuler: a', corps: '', aujourdhui: J });
+  verifie(!r.changed, 'titre étranger refusé');
+  assert.deepStrictEqual(d, jeu(), 'archive : un refus ne modifie aucune donnée');
+
+  const o = { archive: true, archive_date: '2026-10-01' };
+  verifie(archiveVisible(o, '2026-10-30'), 'visible au 29e jour');
+  verifie(!archiveVisible(o, '2026-10-31'), 'retirée du site au 30e jour');
+  verifie(archiveVisible({ archive: false }, '2030-01-01'), 'une offre active est toujours visible');
+
+  return cas;
+}
 
 // Statuts de candidature (scripts/postuler-issue.js), sur un jeu de données
 // fictif : aucune lecture ni écriture de fichier.
@@ -83,6 +131,8 @@ function run() {
     assert.ok(typeof o.archive === 'boolean', 'archive doit etre un booleen : ' + o.id);
     if (o.archive) {
       assert.ok(o.archive_motif, 'offre archivee sans motif : ' + o.id);
+      assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(o.archive_date || ''),
+        'offre archivee sans date d\'archivage : ' + o.id);
     }
     if (o.candidature_status) {
       assert.ok(['demandee', 'preparee', 'envoyee'].includes(o.candidature_status),
@@ -91,14 +141,16 @@ function run() {
   });
 
   const b = build(data);
-  assert.strictEqual(b.activeCount + b.archiveCount, data.offres.length,
-    'actives + archivees doit egaler le total');
+  assert.strictEqual(b.activeCount + b.archiveCount + b.masqueeCount, data.offres.length,
+    'actives + archivees affichees + archivees retirees du site doit egaler le total');
 
   console.log('OK : ' + data.offres.length + ' offres valides, ' +
     b.activeCount + ' actives, ' + b.archiveCount + ' archivees.');
 
   const cas = testPostuler();
   console.log('OK : statuts de candidature, ' + cas + ' cas verifies.');
+  const casArchive = testArchive();
+  console.log('OK : archivage et regle des 30 jours, ' + casArchive + ' cas verifies.');
 }
 
 try {

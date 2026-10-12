@@ -30,7 +30,17 @@ function regionRank(r) {
   return 2;
 }
 
-module.exports = { esc, regionLabel, regionRank, DATA_PATH, OUT_DIR, OUT_FILE };
+// Une offre archivée reste affichée 30 jours dans l'onglet Archives, puis n'est
+// plus affichée. Elle reste dans data/offres.json : la veille sait qu'elle a
+// été écartée et ne la repropose pas.
+const JOURS_ARCHIVE = 30;
+function archiveVisible(o, aujourdhui) {
+  if (!o.archive || !o.archive_date) return true;
+  const jours = Math.floor((Date.parse(aujourdhui) - Date.parse(o.archive_date)) / 86400000);
+  return jours < JOURS_ARCHIVE;
+}
+
+module.exports = { esc, regionLabel, regionRank, archiveVisible, JOURS_ARCHIVE, DATA_PATH, OUT_DIR, OUT_FILE };
 const CSS = `
 :root{
   --bg:#0f1720; --panel:#161f2b; --panel2:#1c2735; --border:#2a3545;
@@ -112,24 +122,163 @@ const CSS2 = `
 .archive-card{opacity:.65;background:var(--panel2)}
 .archive-card .card-title{text-decoration:line-through;text-decoration-color:var(--border)}
 .archive-motif{color:var(--warn);font-size:.85rem;margin-top:8px}
+.archives .hint{font-size:.8rem;opacity:.75}
+.restore-btn{display:inline-flex;align-items:center;justify-content:center;
+  width:40px;height:40px;background:none;border:1px solid var(--border);color:var(--muted);
+  cursor:pointer;font-size:1.1rem;line-height:1;border-radius:10px;flex-shrink:0;
+  text-decoration:none;transition:border-color .15s,color .15s}
+.restore-btn:hover{border-color:var(--accent);color:var(--accent)}
+.bandeau{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;max-width:92%;
+  background:var(--panel2);border:1px solid var(--accent-dark);color:var(--text);
+  padding:10px 16px;border-radius:12px;font-size:.9rem;z-index:10;
+  box-shadow:0 6px 24px rgba(0,0,0,.45)}
+.bandeau.erreur{border-color:#e5534b;color:#ffb3ad}
+.cle-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:999px;
+  padding:6px 14px;font-size:.82rem;cursor:pointer;margin-top:12px}
+.cle-btn:hover{border-color:var(--accent);color:var(--accent)}
 footer{text-align:center;color:var(--muted);font-size:.82rem;margin-top:50px}
 @media(max-width:520px){
   header.hero h1{font-size:1.5rem}
   .card-top{flex-wrap:wrap}
   .card-actions{margin-left:auto;gap:4px}
-  .chevron,.archive-btn,.postuler-btn{width:44px;height:44px;font-size:1.35rem}
+  .chevron,.archive-btn,.postuler-btn,.restore-btn{width:44px;height:44px;font-size:1.35rem}
 }
 `;
 module.exports.CSS2 = CSS2;
 
+// Script de la page. Sans clé enregistrée sur l'appareil, les boutons ouvrent
+// la page GitHub comme avant. Avec la clé (jeton GitHub limité aux issues de ce
+// dépôt, gardé dans le navigateur, jamais dans le dépôt : W-10, W-17), un clic
+// suffit : l'effet s'affiche tout de suite et la demande part en arrière-plan.
+// Un échec s'affiche en rouge, jamais en silence (G-34).
 const JS = `
-document.querySelectorAll('.chevron').forEach(function(btn){
-  btn.addEventListener('click', function(){
-    var det = document.getElementById(btn.getAttribute('data-target'));
-    var open = det.classList.toggle('open');
-    btn.classList.toggle('open', open);
+var REPO = "Tatann85/radar-emploi";
+var CLE = "radar-gh-cle";
+var ATTENTE = "radar-en-attente";
+var DELAI_ALERTE = 3600000;
+
+document.querySelectorAll(".chevron").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    var det = document.getElementById(btn.getAttribute("data-target"));
+    var open = det.classList.toggle("open");
+    btn.classList.toggle("open", open);
   });
 });
+
+function lire(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function ecrire(k, v){ try { if (v === null) { localStorage.removeItem(k); } else { localStorage.setItem(k, v); } } catch(e){} }
+function attente(){ try { return JSON.parse(lire(ATTENTE) || "{}"); } catch(e){ return {}; } }
+function sauverAttente(a){ ecrire(ATTENTE, JSON.stringify(a)); }
+
+function bandeau(msg, erreur){
+  var b = document.getElementById("bandeau");
+  b.textContent = msg;
+  b.className = erreur ? "bandeau erreur" : "bandeau";
+  b.hidden = false;
+  clearTimeout(bandeau.minuteur);
+  if (!erreur) { bandeau.minuteur = setTimeout(function(){ b.hidden = true; }, 4000); }
+}
+
+function compter(){
+  var actives = 0;
+  document.querySelectorAll(".region-details").forEach(function(d){
+    var n = d.querySelectorAll(".card").length;
+    actives += n;
+    d.querySelector(".count").textContent = "(" + n + ")";
+    d.hidden = n === 0;
+  });
+  var arch = document.getElementById("archives");
+  var na = arch.querySelectorAll(".card").length;
+  arch.querySelector(".count").textContent = "(" + na + ")";
+  arch.hidden = na === 0;
+  document.getElementById("nb-actives").textContent = actives;
+  document.getElementById("nb-archives").textContent = na;
+}
+
+function badge(texte){
+  var s = document.createElement("span");
+  s.className = "candidature-badge";
+  s.textContent = texte;
+  return s;
+}
+
+function montrer(card, action, bouton){
+  if (action === "archiver") {
+    card.classList.add("archive-card");
+    card.querySelectorAll("[data-action], .candidature-badge").forEach(function(x){ x.remove(); });
+    card.querySelector(".card-actions").insertBefore(badge("Archivage en cours…"), card.querySelector(".chevron"));
+    document.getElementById("archives").appendChild(card);
+    compter();
+  } else if (bouton) {
+    bouton.replaceWith(badge(action === "postuler" ? "Préparation en cours…" : "Restauration en cours…"));
+  }
+}
+
+(function(){
+  var a = attente(), maintenant = Date.now(), change = false;
+  Object.keys(a).forEach(function(id){
+    var p = a[id];
+    var card = document.querySelector('.card[data-id="' + id + '"]');
+    var fait = !card ||
+      (p.action === "archiver" && card.getAttribute("data-archive") === "1") ||
+      (p.action === "restaurer" && card.getAttribute("data-archive") !== "1") ||
+      (p.action === "postuler" && !card.querySelector('[data-action="postuler"]'));
+    if (fait) { delete a[id]; change = true; return; }
+    if (maintenant - p.t > DELAI_ALERTE) {
+      delete a[id]; change = true;
+      bandeau("La demande " + p.action + " pour " + id + " n'apparaît toujours pas sur le site après une heure. Vérifie sur GitHub.", true);
+      return;
+    }
+    montrer(card, p.action, card.querySelector('[data-action="' + p.action + '"]'));
+  });
+  if (change) { sauverAttente(a); }
+})();
+
+document.addEventListener("click", function(ev){
+  var el = ev.target.closest("[data-action]");
+  if (!el) { return; }
+  var cle = lire(CLE);
+  if (!cle) { return; }
+  ev.preventDefault();
+  var action = el.getAttribute("data-action");
+  var id = el.getAttribute("data-id");
+  var card = el.closest(".card");
+  var a = attente();
+  a[id] = { action: action, t: Date.now() };
+  sauverAttente(a);
+  montrer(card, action, el);
+  fetch("https://api.github.com/repos/" + REPO + "/issues", {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + cle, "Accept": "application/vnd.github+json", "Content-Type": "application/json" },
+    body: JSON.stringify({ title: action + ": " + id, body: "Demande envoyée depuis le site en un clic." })
+  }).then(function(r){
+    if (!r.ok) { throw new Error("GitHub a répondu " + r.status + (r.status === 401 ? ", clé refusée ou expirée" : "")); }
+    bandeau(action === "archiver" ? "Archivée. Le site se met à jour dans quelques minutes."
+      : action === "postuler" ? "Demande de candidature enregistrée."
+      : "Restauration demandée.");
+  }).catch(function(e){
+    var b = attente(); delete b[id]; sauverAttente(b);
+    bandeau("Échec, rien n'a été enregistré : " + e.message + ". Recharge la page avant de réessayer.", true);
+  });
+});
+
+function etiquetteCle(){
+  document.getElementById("cle-btn").textContent = lire(CLE)
+    ? "🔑 Clic direct actif sur cet appareil (changer ou effacer la clé)"
+    : "🔑 Activer le clic direct sur cet appareil";
+}
+document.getElementById("cle-btn").addEventListener("click", function(){
+  var v = window.prompt("Colle ta clé GitHub (jeton limité aux issues de radar-emploi). Laisse vide puis OK pour l'effacer de cet appareil.", "");
+  if (v === null) { return; }
+  v = v.trim();
+  if (!v) { ecrire(CLE, null); etiquetteCle(); bandeau("Clé effacée de cet appareil."); return; }
+  fetch("https://api.github.com/repos/" + REPO, { headers: { "Authorization": "Bearer " + v, "Accept": "application/vnd.github+json" } })
+    .then(function(r){
+      if (!r.ok) { throw new Error("GitHub a répondu " + r.status); }
+      ecrire(CLE, v); etiquetteCle(); bandeau("Clé valide, enregistrée sur cet appareil.");
+    }).catch(function(e){ bandeau("Clé refusée, rien n'a été enregistré : " + e.message, true); });
+});
+etiquetteCle();
 `;
 module.exports.JS = JS;
 function renderCard(o, archived) {
@@ -139,7 +288,8 @@ function renderCard(o, archived) {
   badges += '<span class="badge">' + esc(o.source) + '</span>';
   var detId = 'det-' + o.id;
   var motif = archived && o.archive_motif
-    ? '<p class="archive-motif">Archivée : ' + esc(o.archive_motif) + '</p>' : '';
+    ? '<p class="archive-motif">Archivée' + (o.archive_date ? ' le ' + esc(o.archive_date) : '') +
+      ' : ' + esc(o.archive_motif) + '</p>' : '';
   var notes = o.notes ? '<p>' + esc(o.notes) + '</p>' : '';
   var descr = o.description ? '<div class="job-descr">' + esc(o.description) + '</div>' : '';
   var archiveUrl = 'https://github.com/Tatann85/radar-emploi/issues/new?' +
@@ -147,8 +297,13 @@ function renderCard(o, archived) {
     '&labels=' + encodeURIComponent('archive') +
     '&body=' + encodeURIComponent('Motif (optionnel), à remplacer avant de valider :\n\n');
   var archiveBtn = archived ? '' :
-    '<a class="archive-btn" href="' + archiveUrl + '" target="_blank" rel="noopener" ' +
-    'aria-label="Archiver cette offre" title="Archiver">🗄</a>';
+    '<a class="archive-btn" data-action="archiver" data-id="' + esc(o.id) + '" href="' + archiveUrl +
+    '" target="_blank" rel="noopener" aria-label="Archiver cette offre" title="Archiver">🗄</a>';
+  var restaurerUrl = 'https://github.com/Tatann85/radar-emploi/issues/new?' +
+    'title=' + encodeURIComponent('restaurer: ' + o.id);
+  var restoreBtn = !archived ? '' :
+    '<a class="restore-btn" data-action="restaurer" data-id="' + esc(o.id) + '" href="' + restaurerUrl +
+    '" target="_blank" rel="noopener" aria-label="Restaurer cette offre" title="Restaurer">↩</a>';
 
   var postulerUrl = 'https://github.com/Tatann85/radar-emploi/issues/new?' +
     'title=' + encodeURIComponent('postuler: ' + o.id) +
@@ -165,12 +320,14 @@ function renderCard(o, archived) {
   } else if (candStatus === 'demandee') {
     candAction = '<span class="candidature-badge">Préparation en cours…</span>';
   } else {
-    candAction = '<a class="postuler-btn" href="' + postulerUrl + '" target="_blank" rel="noopener" ' +
+    candAction = '<a class="postuler-btn" data-action="postuler" data-id="' + esc(o.id) + '" href="' +
+      postulerUrl + '" target="_blank" rel="noopener" ' +
       'aria-label="Postuler à cette offre" title="Postuler">✉</a>';
   }
 
   return '' +
-    '<div class="card' + (archived ? ' archive-card' : '') + '">' +
+    '<div class="card' + (archived ? ' archive-card' : '') + '" data-id="' + esc(o.id) + '"' +
+      (archived ? ' data-archive="1"' : '') + '>' +
       '<div class="card-top">' +
         '<div class="card-main">' +
           '<p class="card-title">' + esc(o.titre) + '</p>' +
@@ -180,6 +337,7 @@ function renderCard(o, archived) {
         '<div class="card-actions">' +
           candAction +
           archiveBtn +
+          restoreBtn +
           '<button class="chevron" data-target="' + detId + '" aria-label="Détail">▾</button>' +
         '</div>' +
       '</div>' +
@@ -190,9 +348,12 @@ function renderCard(o, archived) {
     '</div>';
 }
 module.exports.renderCard = renderCard;
-function build(data) {
+function build(data, aujourdhui) {
+  aujourdhui = aujourdhui || new Date().toISOString().slice(0, 10);
   var actives = data.offres.filter(function (o) { return !o.archive; });
-  var archived = data.offres.filter(function (o) { return o.archive; });
+  var archived = data.offres.filter(function (o) { return o.archive && archiveVisible(o, aujourdhui); });
+  var masquees = data.offres.filter(function (o) { return o.archive && !archiveVisible(o, aujourdhui); });
+  archived.sort(function (a, b) { return String(b.archive_date || '').localeCompare(String(a.archive_date || '')); });
   actives.sort(function (a, b) { return regionRank(a.region) - regionRank(b.region); });
 
   var byRegion = {};
@@ -211,13 +372,17 @@ function build(data) {
       '</details>';
   }).join('');
 
-  var archiveSection = archived.length ? (
-    '<details class="archives"><summary>Archives (' + archived.length + ')</summary>' +
+  // Toujours présente (masquée si vide) : le script y range une offre archivée
+  // d'un clic, sans attendre la republication.
+  var archiveSection =
+    '<details class="archives" id="archives"' + (archived.length ? '' : ' hidden') + '>' +
+    '<summary>Archives <span class="count">(' + archived.length + ')</span>' +
+    ' <span class="hint">· retirées du site au bout de ' + JOURS_ARCHIVE + ' jours</span></summary>' +
     archived.map(function (o) { return renderCard(o, true); }).join('') +
-    '</details>'
-  ) : '';
+    '</details>';
 
-  return { sections: sections, archiveSection: archiveSection, activeCount: actives.length, archiveCount: archived.length };
+  return { sections: sections, archiveSection: archiveSection, activeCount: actives.length,
+    archiveCount: archived.length, masqueeCount: masquees.length };
 }
 module.exports.build = build;
 function page(data) {
@@ -232,12 +397,15 @@ function page(data) {
     '<p>Ingénieur mécanique, 16 ans d\'expérience (conception, calcul EF, management de BE). ' +
     'Vendée en priorité, Nantes en télétravail partiel, France entière en télétravail total.</p>' +
     '<div class="stats">' +
-    '<span class="stat"><b>' + b.activeCount + '</b> offres actives</span>' +
-    '<span class="stat"><b>' + b.archiveCount + '</b> en archive</span>' +
+    '<span class="stat"><b id="nb-actives">' + b.activeCount + '</b> offres actives</span>' +
+    '<span class="stat"><b id="nb-archives">' + b.archiveCount + '</b> en archive</span>' +
     '<span class="stat">Mis à jour le ' + esc(data.generated_at) + '</span>' +
     '</div></header>' +
     b.sections + b.archiveSection +
-    '<footer>Radar Emploi BE — usage personnel d\'Antoine Baud, page privée.</footer>' +
+    '<footer>Radar Emploi BE — usage personnel d\'Antoine Baud, page privée.' +
+    '<br><button id="cle-btn" class="cle-btn" type="button">🔑 Activer le clic direct sur cet appareil</button>' +
+    '</footer>' +
+    '<div id="bandeau" class="bandeau" role="status" hidden></div>' +
     '</div><script>' + JS + '</script></body></html>';
 }
 module.exports.page = page;
