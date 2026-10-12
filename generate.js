@@ -311,6 +311,11 @@ document.addEventListener("click", function(ev){
   ev.preventDefault();
   var action = el.getAttribute("data-action");
   var id = el.getAttribute("data-id");
+  if (action === "envoyee") {
+    var c0 = carte(id);
+    var t0 = c0 ? c0.querySelector(".card-title").textContent : id;
+    if (!window.confirm("As-tu vraiment envoyé ta candidature pour « " + t0 + " » ?")) { return; }
+  }
   var cle = lire(CLE);
   if (cle) { envoyer(cle, action, id, el); return; }
   var v = window.prompt("Pour agir en un clic, colle ta clé GitHub (une seule fois sur cet appareil)." +
