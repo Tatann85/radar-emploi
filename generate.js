@@ -298,7 +298,7 @@ function renderCard(o, archived) {
     '&body=' + encodeURIComponent('Motif (optionnel), à remplacer avant de valider :\n\n');
   var archiveBtn = archived ? '' :
     '<a class="archive-btn" data-action="archiver" data-id="' + esc(o.id) + '" href="' + archiveUrl +
-    '" target="_blank" rel="noopener" aria-label="Archiver cette offre" title="Archiver">🗄</a>';
+    '" target="_blank" rel="noopener" aria-label="Archiver cette offre" title="Archiver">🗑</a>';
   var restaurerUrl = 'https://github.com/Tatann85/radar-emploi/issues/new?' +
     'title=' + encodeURIComponent('restaurer: ' + o.id);
   var restoreBtn = !archived ? '' :
@@ -322,7 +322,7 @@ function renderCard(o, archived) {
   } else {
     candAction = '<a class="postuler-btn" data-action="postuler" data-id="' + esc(o.id) + '" href="' +
       postulerUrl + '" target="_blank" rel="noopener" ' +
-      'aria-label="Postuler à cette offre" title="Postuler">✉</a>';
+      'aria-label="Postuler à cette offre" title="Postuler">➤</a>';
   }
 
   return '' +
