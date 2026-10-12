@@ -412,9 +412,10 @@
       "url": "https://www.linkedin.com/jobs/view/4473023813",
       "source": "LinkedIn",
       "notes": "France entière : à ne retenir que si télétravail total confirmé.",
-      "archive": false,
-      "archive_motif": null,
-      "description": "fortil, groupe international d'ingénierie indépendant (2500 collaborateurs, 30 agences, 14 pays). Développement des activités à Nantes : recrutement d'un Product Owner.\n\nRattaché(e) au Responsable de projets, équipe Agile sur produits Data stratégiques (connaissance client, usages digitaux).\n\nMissions : recueillir/analyser/prioriser les besoins, définir la roadmap produit, piloter le backlog (User Stories), garantir la création de valeur (UX, ROI, Time-to-Market), critères d'acceptation, vie de la squad Agile, ateliers utilisateurs, conduite du changement, qualité/sécurité/conformité RGPD, suivi budgétaire.\n\nProfil : Bac+5 informatique/ingénierie/data/école de commerce, 7 ans d'expérience minimum en environnement Agile. Connaissance marketing (segmentation, ciblage), environnements Data/Big Data, RGPD, Scrum, Jira/Jira Align. Secteur agroalimentaire apprécié. Rémunération : 42-48 K€. Rennes."
+      "archive": true,
+      "archive_motif": "Archivée depuis le site le 2026-10-12.",
+      "description": "fortil, groupe international d'ingénierie indépendant (2500 collaborateurs, 30 agences, 14 pays). Développement des activités à Nantes : recrutement d'un Product Owner.\n\nRattaché(e) au Responsable de projets, équipe Agile sur produits Data stratégiques (connaissance client, usages digitaux).\n\nMissions : recueillir/analyser/prioriser les besoins, définir la roadmap produit, piloter le backlog (User Stories), garantir la création de valeur (UX, ROI, Time-to-Market), critères d'acceptation, vie de la squad Agile, ateliers utilisateurs, conduite du changement, qualité/sécurité/conformité RGPD, suivi budgétaire.\n\nProfil : Bac+5 informatique/ingénierie/data/école de commerce, 7 ans d'expérience minimum en environnement Agile. Connaissance marketing (segmentation, ciblage), environnements Data/Big Data, RGPD, Scrum, Jira/Jira Align. Secteur agroalimentaire apprécié. Rémunération : 42-48 K€. Rennes.",
+      "archive_date": "2026-10-12"
     }
   ]
 }
