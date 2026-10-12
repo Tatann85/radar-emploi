@@ -129,7 +129,7 @@ const CSS2 = `
   cursor:pointer;font-size:1.55rem;line-height:1;border-radius:10px;flex-shrink:0;
   text-decoration:none;transition:border-color .15s,color .15s}
 .restore-btn:hover{border-color:var(--accent);color:var(--accent)}
-.bandeau{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;max-width:92%;
+.bandeau{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;width:max-content;max-width:min(92vw,560px);cursor:pointer;
   background:var(--panel2);border:1px solid var(--accent-dark);color:var(--text);
   padding:10px 16px;border-radius:12px;font-size:.9rem;z-index:10;
   box-shadow:0 6px 24px rgba(0,0,0,.45)}
