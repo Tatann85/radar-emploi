@@ -146,8 +146,7 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;margin-top:50px}
 `;
 module.exports.CSS2 = CSS2;
 
-// Script de la page. Sans clé enregistrée sur l'appareil, les boutons ouvrent
-// la page GitHub comme avant. Avec la clé (jeton GitHub limité aux issues de ce
+// Script de la page. Aucun bouton n'ouvre plus la page GitHub. Avec la clé (jeton GitHub limité aux issues de ce
 // dépôt, gardé dans le navigateur, jamais dans le dépôt : W-10, W-17), un clic
 // suffit : l'effet s'affiche tout de suite et la demande part en arrière-plan.
 // Un échec s'affiche en rouge, jamais en silence (G-34).
@@ -155,7 +154,9 @@ const JS = `
 var REPO = "Tatann85/radar-emploi";
 var CLE = "radar-gh-cle";
 var ATTENTE = "radar-en-attente";
+var LOCALES = "radar-archives-locales";
 var DELAI_ALERTE = 3600000;
+var JOURS_30 = 30 * 86400000;
 
 document.querySelectorAll(".chevron").forEach(function(btn){
   btn.addEventListener("click", function(){
@@ -202,11 +203,13 @@ function badge(texte){
   return s;
 }
 
-function montrer(card, action, bouton){
+function locales(){ try { return JSON.parse(lire(LOCALES) || "{}"); } catch(e){ return {}; } }
+
+function montrer(card, action, bouton, texte){
   if (action === "archiver") {
     card.classList.add("archive-card");
     card.querySelectorAll("[data-action], .candidature-badge").forEach(function(x){ x.remove(); });
-    card.querySelector(".card-actions").insertBefore(badge("Archivage en cours…"), card.querySelector(".chevron"));
+    card.querySelector(".card-actions").insertBefore(badge(texte || "Archivage en cours…"), card.querySelector(".chevron"));
     document.getElementById("archives").appendChild(card);
     compter();
   } else if (bouton) {
@@ -234,14 +237,57 @@ function montrer(card, action, bouton){
   if (change) { sauverAttente(a); }
 })();
 
+(function(){
+  var l = locales(), maintenant = Date.now(), change = false;
+  Object.keys(l).forEach(function(id){
+    var card = document.querySelector('.card[data-id="' + id + '"]');
+    if (!card || card.getAttribute("data-archive") === "1") { delete l[id]; change = true; return; }
+    if (maintenant - l[id] >= JOURS_30) { card.remove(); compter(); return; }
+    montrer(card, "archiver", null, "Archivée sur cet appareil");
+  });
+  if (change) { ecrire(LOCALES, JSON.stringify(l)); }
+})();
+
+function archiverIci(id, el){
+  var l = locales();
+  l[id] = Date.now();
+  ecrire(LOCALES, JSON.stringify(l));
+  montrer(el.closest(".card"), "archiver", el, "Archivée sur cet appareil");
+  bandeau("Archivée sur cet appareil seulement. Active le clic direct (🔑 en bas de page) pour l'enregistrer partout.");
+}
+
+function validerCle(v){
+  return fetch("https://api.github.com/repos/" + REPO, { headers: { "Authorization": "Bearer " + v, "Accept": "application/vnd.github+json" } })
+    .then(function(r){
+      if (!r.ok) { throw new Error("GitHub a répondu " + r.status); }
+      ecrire(CLE, v);
+      etiquetteCle();
+    });
+}
+
+// Plus aucune page GitHub ne s'ouvre : sans clé, le site la demande une fois ;
+// si on refuse, la poubelle archive sur cet appareil seulement.
 document.addEventListener("click", function(ev){
   var el = ev.target.closest("[data-action]");
   if (!el) { return; }
-  var cle = lire(CLE);
-  if (!cle) { return; }
   ev.preventDefault();
   var action = el.getAttribute("data-action");
   var id = el.getAttribute("data-id");
+  var cle = lire(CLE);
+  if (cle) { envoyer(cle, action, id, el); return; }
+  var v = window.prompt("Pour agir en un clic, colle ta clé GitHub (une seule fois sur cet appareil)." +
+    (action === "archiver" ? " Annuler : archiver seulement sur cet appareil." : ""), "");
+  v = v === null ? "" : v.trim();
+  if (!v) {
+    if (action === "archiver") { archiverIci(id, el); }
+    else { bandeau("Sans clé, la demande ne peut pas être enregistrée. Active le clic direct avec le bouton 🔑 en bas de page.", true); }
+    return;
+  }
+  validerCle(v).then(function(){ envoyer(v, action, id, el); })
+    .catch(function(e){ bandeau("Clé refusée, rien n'a été fait : " + e.message, true); });
+});
+
+function envoyer(cle, action, id, el){
   var card = el.closest(".card");
   var a = attente();
   a[id] = { action: action, t: Date.now() };
@@ -260,7 +306,7 @@ document.addEventListener("click", function(ev){
     var b = attente(); delete b[id]; sauverAttente(b);
     bandeau("Échec, rien n'a été enregistré : " + e.message + ". Recharge la page avant de réessayer.", true);
   });
-});
+}
 
 function etiquetteCle(){
   document.getElementById("cle-btn").textContent = lire(CLE)
@@ -272,11 +318,9 @@ document.getElementById("cle-btn").addEventListener("click", function(){
   if (v === null) { return; }
   v = v.trim();
   if (!v) { ecrire(CLE, null); etiquetteCle(); bandeau("Clé effacée de cet appareil."); return; }
-  fetch("https://api.github.com/repos/" + REPO, { headers: { "Authorization": "Bearer " + v, "Accept": "application/vnd.github+json" } })
-    .then(function(r){
-      if (!r.ok) { throw new Error("GitHub a répondu " + r.status); }
-      ecrire(CLE, v); etiquetteCle(); bandeau("Clé valide, enregistrée sur cet appareil.");
-    }).catch(function(e){ bandeau("Clé refusée, rien n'a été enregistré : " + e.message, true); });
+  validerCle(v)
+    .then(function(){ bandeau("Clé valide, enregistrée sur cet appareil."); })
+    .catch(function(e){ bandeau("Clé refusée, rien n'a été enregistré : " + e.message, true); });
 });
 etiquetteCle();
 `;
