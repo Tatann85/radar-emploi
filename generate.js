@@ -106,6 +106,7 @@ header.hero p{color:var(--muted);margin:0;font-size:1.02rem}
   background:var(--panel2);color:var(--muted);border:1px solid var(--border);
   white-space:nowrap;flex-shrink:0}
 .candidature-badge.envoyee{color:var(--accent);border-color:var(--accent-dark)}
+.candidature-badge.pret{color:var(--warn);border-color:var(--warn)}
 .job-descr{white-space:pre-wrap;margin:0 0 10px;padding:12px 14px;background:var(--panel2);
   border:1px solid var(--border);border-radius:10px;font-size:.88rem;max-height:340px;
   overflow-y:auto}
@@ -140,7 +141,9 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;margin-top:50px}
 @media(max-width:520px){
   header.hero h1{font-size:1.5rem}
   .card-top{flex-wrap:wrap}
+  .card-main{flex-basis:100%}
   .card-actions{margin-left:auto;gap:4px}
+  .bandeau{font-size:1rem;bottom:24px}
   .chevron,.archive-btn,.postuler-btn,.restore-btn{width:52px;height:52px;font-size:1.75rem}
 }
 `;
@@ -171,14 +174,15 @@ function ecrire(k, v){ try { if (v === null) { localStorage.removeItem(k); } els
 function attente(){ try { return JSON.parse(lire(ATTENTE) || "{}"); } catch(e){ return {}; } }
 function sauverAttente(a){ ecrire(ATTENTE, JSON.stringify(a)); }
 
-function bandeau(msg, erreur){
+function bandeau(msg, erreur, duree){
   var b = document.getElementById("bandeau");
   b.textContent = msg;
   b.className = erreur ? "bandeau erreur" : "bandeau";
   b.hidden = false;
   clearTimeout(bandeau.minuteur);
-  if (!erreur) { bandeau.minuteur = setTimeout(function(){ b.hidden = true; }, 4000); }
+  if (!erreur) { bandeau.minuteur = setTimeout(function(){ b.hidden = true; }, duree || 4000); }
 }
+document.getElementById("bandeau").addEventListener("click", function(){ this.hidden = true; });
 
 function compter(){
   var actives = 0;
@@ -214,7 +218,7 @@ function montrer(card, action, bouton, texte){
     document.getElementById("archives").appendChild(card);
     compter();
   } else if (bouton) {
-    bouton.replaceWith(badge(action === "postuler" ? "Préparation en cours…" : "Restauration en cours…"));
+    bouton.replaceWith(badge(action === "postuler" ? "⏳ En préparation" : "Restauration en cours…"));
   }
 }
 
@@ -307,6 +311,7 @@ document.addEventListener("click", function(ev){
 
 function envoyer(cle, action, id, el){
   var card = carte(id);
+  var titre = card ? card.querySelector(".card-title").textContent : id;
   var a = attente();
   a[id] = { action: action, t: Date.now() };
   sauverAttente(a);
@@ -319,9 +324,12 @@ function envoyer(cle, action, id, el){
     body: JSON.stringify({ title: action + ": " + id, body: "Demande envoyée depuis le site en un clic." })
   }).then(function(r){
     if (!r.ok) { throw new Error("GitHub a répondu " + r.status + (r.status === 401 ? ", clé refusée ou expirée" : "")); }
-    bandeau(action === "archiver" ? "Archivée. Le site se met à jour dans quelques minutes."
-      : action === "postuler" ? "Demande de candidature enregistrée."
-      : "Restauration demandée.");
+    if (action === "postuler") {
+      bandeau("✅ C'est parti pour « " + titre + " ». Je prépare la lettre et l'ajustement du CV ; " +
+        "le dossier t'attendra dans ton Drive, et rien ne part au recruteur sans ton accord.", false, 8000);
+    } else {
+      bandeau(action === "archiver" ? "✅ Archivée." : "✅ Restauration demandée.");
+    }
   }).catch(function(e){
     var b = attente(); delete b[id]; sauverAttente(b);
     if (action === "archiver") {
@@ -385,9 +393,9 @@ function renderCard(o, archived) {
   } else if (candStatus === 'envoyee') {
     candAction = '<span class="candidature-badge envoyee">✓ Candidature envoyée</span>';
   } else if (candStatus === 'preparee') {
-    candAction = '<span class="candidature-badge">En attente de ta validation</span>';
+    candAction = '<span class="candidature-badge pret">📄 Dossier prêt, à valider</span>';
   } else if (candStatus === 'demandee') {
-    candAction = '<span class="candidature-badge">Préparation en cours…</span>';
+    candAction = '<span class="candidature-badge">⏳ En préparation</span>';
   } else {
     candAction = '<a class="postuler-btn" data-action="postuler" data-id="' + esc(o.id) + '" href="' +
       postulerUrl + '" target="_blank" rel="noopener" ' +
